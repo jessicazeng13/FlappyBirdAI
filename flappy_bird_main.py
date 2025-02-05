@@ -7,6 +7,7 @@ pygame.font.init()
 
 WIN_WIDTH = 500 # constant values
 WIN_HEIGHT = 800 
+GEN = 0 #generation number
 
 ## LOAD IMAGES & FONTS ##
 # store all 3 images of bird in a list, note store 2x means double the size
@@ -189,7 +190,7 @@ class Base:
 
 
 
-def draw_window(win, bird, pipes, base, score):
+def draw_window(win, birds, pipes, base, score, gen):
     # Draw the background image
     win.blit(BG_IMG, (0,0))
 
@@ -201,9 +202,13 @@ def draw_window(win, bird, pipes, base, score):
     text = STAT_FONT.render("Score: " + str(score), 1, (255,255,255)) 
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10)) #position of the score
 
-    # Draw the base & bird
+    gentext = STAT_FONT.render("Gen: " + str(gen), 1, (255,255,255)) 
+    win.blit(gentext, (10, 10)) #position of the score
+
+    # Draw the base & birds
     base.draw(win)
-    bird.draw(win) 
+    for bird in birds:
+        bird.draw(win) 
 
     # Update the display
     pygame.display.update() 
@@ -211,12 +216,15 @@ def draw_window(win, bird, pipes, base, score):
 
 ## MAIN FUNCTION ## gemones & config for NEAT fitness functions
 def main(genomes, config):
+    global GEN
+    GEN += 1
+    
     nets = [] #neural networks
     ge = [] #genomes
     birds = []
 
     # set up the neural network for each genome 
-    for g in genomes:
+    for _, g in genomes:
         net = neat.nn.FeedForwardNetwork.create(g, config)
         nets.append(net)
         birds.append(Bird(230, 350)) #starting position of the bird
@@ -239,9 +247,29 @@ def main(genomes, config):
         for event in pygame.event.get():  #check for events i.e click
             if event.type == pygame.QUIT: #if we click the X window button
                 run = False
+                pygame.quit()
+                quit()
 
-        # bird.move() # move the bird for every tick
-        base.move()
+        # Identify which pipe, as there can be max 2
+        pipe_ind = 0
+        if len(birds) > 0:
+            # if more than 1 pipe, and if x position of any bird has passed the pipe, change pipe index to the next one
+            if len(pipes) > 1 and birds[0].x > pipes[0].x + pipes[0].PIPE_TOP.get_width(): #checked tutorial
+                pipe_ind = 1
+        else: # if we have no birds left, end the game
+            run = False
+            break
+
+        for x, bird in enumerate(birds):
+            bird.move()
+            ge[x].fitness += 0.1
+
+            # inputs: bird.y, and distance between bird and top and bottom pipe
+            output = nets[x].activate((bird.y, abs(bird.y - pipes[pipe_ind].height), abs(bird.y - pipes[pipe_ind].bottom))) 
+
+            # if output is greater than 0.5, jump
+            if output[0] > 0.5:
+                bird.jump()
 
         add_pipe = False
         remove = [] #list to store pipes we want to remove
@@ -268,24 +296,22 @@ def main(genomes, config):
         if add_pipe:
             score += 1
             for g in ge:
-                g.fitness += 5  #if bird passes pipe, increase their fitness by 5
+                g.fitness += 5      #if bird passes pipe, increase their fitness by 5
             pipes.append(Pipe(700)) #create new pipe, if you want pipes closer together, can make like 650
         
         # remove pipes from the list
         for r in remove:
             pipes.remove(r)
 
-        for bird in birds:
+        for x, bird in enumerate(birds):
             # Check if bird hits the ground	
-            if bird.y + bird.img.get_height() >= 730:
-                pass
+            if bird.y + bird.img.get_height() >= 730 or bird.y < 0: #if bird hits the ground or goes above the screen
+                birds.pop(x)
+                nets.pop(x)
+                ge.pop(x)  
 
-        draw_window(win, bird, pipes, base, score)
-
-    pygame.quit()
-    quit()
- 
-main()
+        base.move()
+        draw_window(win, birds, pipes, base, score, GEN)
 
 
 # Function to run
