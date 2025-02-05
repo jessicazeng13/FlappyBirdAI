@@ -211,7 +211,19 @@ def draw_window(win, bird, pipes, base, score):
 
 ## MAIN FUNCTION ## gemones & config for NEAT fitness functions
 def main(genomes, config):
-    bird = Bird(230, 250)
+    nets = [] #neural networks
+    ge = [] #genomes
+    birds = []
+
+    # set up the neural network for each genome 
+    for g in genomes:
+        net = neat.nn.FeedForwardNetwork.create(g, config)
+        nets.append(net)
+        birds.append(Bird(230, 350)) #starting position of the bird
+        g.fitness = 0 # set the fitness of each bird to 0
+        ge.append(g) #append the genome to the list
+
+
     base = Base(730) #bottom of the screen
     pipes = [Pipe(700)] #initialise pipe x position at 700?
     run = True
@@ -233,33 +245,40 @@ def main(genomes, config):
 
         add_pipe = False
         remove = [] #list to store pipes we want to remove
-        for pipe in pipes:         
-            # Check for collision
-            if pipe.collide(bird):
-                pass
+        for pipe in pipes:     
+            for x, bird in enumerate(birds):    
+                # Check for collision, if it collides, remove the genome
+                if pipe.collide(bird):
+                    ge[x].fitness -= 1  #if bird hits pipe, reduce fitness by 1
+                    birds.pop(x)       
+                    nets.pop(x)         
+                    ge.pop(x)           
+                    
+                # Checks if bird has passed the pipe
+                if not pipe.passed and pipe.x < bird.x:  # Do not understand this one
+                    pipe.passed = True
+                    add_pipe = True
 
             # Once x position of a pipe is completely off the screen, add a new pipe
             if pipe.x + pipe.PIPE_TOP.get_width() < 0:
                 remove.append(pipe)
 
-            # Checks if bird has passed the pipe
-            if not pipe.passed and pipe.x < bird.x:  # Do not understand this one
-                pipe.passed = True
-                add_pipe = True
-
             pipe.move()
 
         if add_pipe:
             score += 1
+            for g in ge:
+                g.fitness += 5  #if bird passes pipe, increase their fitness by 5
             pipes.append(Pipe(700)) #create new pipe, if you want pipes closer together, can make like 650
         
         # remove pipes from the list
         for r in remove:
             pipes.remove(r)
 
-        # Check if bird hits the ground	
-        if bird.y + bird.img.get_height() >= 730:
-            pass
+        for bird in birds:
+            # Check if bird hits the ground	
+            if bird.y + bird.img.get_height() >= 730:
+                pass
 
         draw_window(win, bird, pipes, base, score)
 
