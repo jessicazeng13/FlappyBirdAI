@@ -209,8 +209,8 @@ def draw_window(win, bird, pipes, base, score):
     pygame.display.update() 
 
 
-## MAIN FUNCTION ##
-def main():
+## MAIN FUNCTION ## gemones & config for NEAT fitness functions
+def main(genomes, config):
     bird = Bird(230, 250)
     base = Base(730) #bottom of the screen
     pipes = [Pipe(700)] #initialise pipe x position at 700?
